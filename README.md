@@ -16,19 +16,13 @@ kube-applier serves a [status page](#status-ui) and provides [metrics](#metrics)
 
 ## Requirements
 * [Go (1.7+)](https://golang.org/dl/)
-* [Docker (1.10+)](https://docs.docker.com/engine/getstarted/step_one/#step-1-get-docker)
+* [Docker (17.05+)](https://docs.docker.com/engine/getstarted/step_one/#step-1-get-docker)
 * [Kubernetes cluster](http://kubernetes.io/docs/getting-started-guides/binary_release/)
+    * kube-applier generally supports any Kubernetes server release, assuming that you are installing a compatible kubectl client in your Dockerfile.
     * The kubectl version specified in the Dockerfile must be either the same minor release as the cluster API server, or one release behind the server (e.g. client 1.3 and server 1.4 is fine, but client 1.4 and server 1.3 is not).
-    * Supported Kubernetes releases:
-        * Note: Releases prior to 1.6.0 are subject [many](https://github.com/kubernetes/kubernetes/issues/40119) [known](https://github.com/kubernetes/kubernetes/issues/29542) [issues](https://github.com/kubernetes/kubernetes/issues/39906) with using `kubectl apply` to apply ThirdPartyResource objects.
-        * 1.2.x
-        * 1.3.x
-        * 1.4.x
-        * 1.5.8+ (earlier 1.5 releases not supported due to [issue](https://github.com/kubernetes/kubernetes/issues/7789#issuecomment-280568960), fixed [here](https://github.com/kubernetes/kubernetes/pull/44862/)).
-        * 1.6.3+ (same as 1.5)
-        * 1.7.x
-        * 1.8.x
-        * 1.9.x
+    * There are several known problems with `kubectl apply` that may affect your use of kube-applier. Some examples:
+        * Releases prior to 1.6.0 are subject [many](https://github.com/kubernetes/kubernetes/issues/40119) [known](https://github.com/kubernetes/kubernetes/issues/29542) [issues](https://github.com/kubernetes/kubernetes/issues/39906) with using `kubectl apply` to apply ThirdPartyResource objects.
+        * 1.5 and 1.6 releases before 1.5.8 and 1.6.3 are not supported due to an [issue](https://github.com/kubernetes/kubernetes/issues/7789#issuecomment-280568960) with namespaces, fixed [here](https://github.com/kubernetes/kubernetes/pull/44862/).
 
 ## Setup
 
@@ -87,6 +81,7 @@ A single line gets ignored if the first non-blank character is # in that line.
 * `POLL_INTERVAL_SECONDS` - (int) Number of seconds to wait between each check for new commits to the repo (default is 5). Set to 0 to disable the wait period.
 * <a name="run-interval"></a>`FULL_RUN_INTERVAL_SECONDS` - (int) Number of seconds between automatic full runs (default is 300, or 5 minutes). Set to 0 to disable the wait period.
 * `DIFF_URL_FORMAT` - (string) If specified, allows the status page to display a link to the source code referencing the diff for a specific commit. `DIFF_URL_FORMAT` should be a URL for a hosted remote repo that supports linking to a commit hash. Replace the commit hash portion with "%s" so it can be filled in by kube-applier (e.g. `https://github.com/kubernetes/kubernetes/commit/%s`).
+* `LOG_LEVEL` - (int) Sets the `-v` flag on all `kubectl` commands run. Use this option to configure more verbose logging. If not specified, the `-v` flag is not set on `kubectl` commands defaulting to standard log verbosity.
 
 ### Mounting the Git Repository
 

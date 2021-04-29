@@ -2,13 +2,15 @@ package kube
 
 import (
 	"fmt"
-	"github.com/box/kube-applier/sysutil"
 	"io/ioutil"
 	"log"
+	"math"
 	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/box/kube-applier/sysutil"
 )
 
 const (
@@ -31,9 +33,8 @@ type Client struct {
 	Server string
 	// Location of the written kubeconfig file within the container
 	kubeconfigFilePath string
-
-	// A directory with write permissions for kubectl to load store its schema cache
-	schemaCacheDir string
+	// if <0, no verbosity level is specified in the commands run
+	LogLevel int
 }
 
 // Configure writes the kubeconfig file to be used for authenticating kubectl commands.
@@ -44,20 +45,13 @@ func (c *Client) Configure() error {
 	}
 
 	f, err := ioutil.TempFile("", "kubeConfig")
+	c.kubeconfigFilePath = f.Name()
+	log.Printf("Using kubeConfig file: %s", c.kubeconfigFilePath)
+
 	if err != nil {
 		return fmt.Errorf("Error creating kubeconfig file: %v", err)
 	}
 	defer f.Close()
-
-	c.kubeconfigFilePath = f.Name()
-	log.Printf("Using kubeConfig file:", c.kubeconfigFilePath)
-
-	scd, err := ioutil.TempDir("", "kubectl-schema-cache-dir")
-	if err != nil {
-		log.Printf("Error creating kubectl schema cache dir: %v", err)
-	} else {
-		c.schemaCacheDir = scd
-	}
 
 	token, err := ioutil.ReadFile(tokenPath)
 	if err != nil {
@@ -85,6 +79,9 @@ func (c *Client) Configure() error {
 // CheckVersion returns an error if the server and client have incompatible versions, otherwise returns nil.
 func (c *Client) CheckVersion() error {
 	args := []string{"kubectl", "version"}
+	if c.LogLevel > -1 {
+		args = append(args, fmt.Sprintf("-v=%d", c.LogLevel))
+	}
 	if c.Server != "" {
 		args = append(args, fmt.Sprintf("--kubeconfig=%s", c.kubeconfigFilePath))
 	}
@@ -126,7 +123,7 @@ func isCompatible(clientMajor, clientMinor, serverMajor, serverMinor string) err
 	}
 
 	minorDiff := serverMinorInt - clientMinorInt
-	if minorDiff != 0 && minorDiff != 1 {
+	if math.Abs(float64(minorDiff)) > 1 {
 		return incompatible
 	}
 	return nil
@@ -135,7 +132,10 @@ func isCompatible(clientMajor, clientMinor, serverMajor, serverMinor string) err
 // Apply attempts to "kubectl apply" the file located at path.
 // It returns the full apply command and its output.
 func (c *Client) Apply(path string) (cmd, output string, err error) {
-	args := []string{"kubectl", "apply", "--schema-cache-dir", c.schemaCacheDir, "-f", path}
+	args := []string{"kubectl", "apply", "-f", path}
+	if c.LogLevel > -1 {
+		args = append(args, fmt.Sprintf("-v=%d", c.LogLevel))
+	}
 	if c.Server != "" {
 		args = append(args, fmt.Sprintf("--kubeconfig=%s", c.kubeconfigFilePath))
 	}
